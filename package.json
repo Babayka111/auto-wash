@@ -1,0 +1,23 @@
+{
+  "name": "auto-wash-cabinet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Личный кабинет клиента автомойки",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "db:init": "node db/init.js",
+    "db:seed": "node db/seed.js",
+    "check": "node --check server/index.js && node --check public/js/app.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "pg": "^8.13.3"
+  },
+  "engines": {"node": ">=20"}
+}

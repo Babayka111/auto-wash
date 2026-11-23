@@ -1,0 +1,19 @@
+(async()=>{
+ if(!await AW.requireLogin())return;
+ const ids=new Set(),dateEl=document.getElementById('booking-date'),serviceEl=document.getElementById('booking-services'),slotsEl=document.getElementById('booking-slots'),carEl=document.getElementById('booking-car');
+ let services=[],chosenTime='',duration=0;
+ const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
+ const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+ dateEl.min=localDate(new Date());dateEl.value=localDate(tomorrow);
+ try{[services]=await Promise.all([AW.api('/api/services'),AW.api('/api/cars').then(cars=>{carEl.innerHTML=cars.length?'<option value="">Выберите автомобиль</option>'+cars.map(c=>`<option value="${c.id}">${AW.esc(c.brand)} ${AW.esc(c.model)} · ${AW.esc(c.plate)}</option>`).join(''):'<option value="">Сначала добавьте автомобиль</option>';})]);}
+ catch(e){AW.toast(e.message,'error');return;}
+ const preselected=new URLSearchParams(location.search).get('service');if(preselected&&services.some(s=>String(s.id)===preselected))ids.add(preselected);
+ serviceEl.classList.remove('spinner');serviceEl.innerHTML=services.map(s=>`<label class="check-service"><input type="checkbox" value="${s.id}" ${ids.has(String(s.id))?'checked':''}><div class="grow"><strong>${AW.esc(s.name)}</strong><small>${s.duration_min} мин · ${AW.esc(s.description)}</small></div><strong>${AW.money(s.price)}</strong></label>`).join('');
+ function updateSummary(){const chosen=services.filter(s=>ids.has(String(s.id))),price=chosen.reduce((sum,s)=>sum+Number(s.price),0);duration=chosen.reduce((sum,s)=>sum+s.duration_min,0);document.getElementById('booking-summary').innerHTML=chosen.length?chosen.map(s=>`<div class="car-row"><span>${AW.esc(s.name)}</span><strong>${AW.money(s.price)}</strong></div>`).join(''):'Услуги пока не выбраны';document.getElementById('booking-total').textContent=AW.money(price);document.getElementById('booking-duration').textContent=`Продолжительность: ${duration} мин`;}
+ async function updateSlots(){chosenTime='';slotsEl.innerHTML='<span class="muted">Поиск свободного времени...</span>';if(!ids.size||!dateEl.value){slotsEl.innerHTML='<span class="muted">Выберите услуги и дату</span>';return;}try{const r=await AW.api(`/api/slots?date=${encodeURIComponent(dateEl.value)}&services=${[...ids].join(',')}`);slotsEl.innerHTML=r.slots.length?r.slots.map(s=>`<button type="button" class="slot" data-time="${s.time}">${s.time}</button>`).join(''):'<span class="muted">На выбранную дату нет свободных интервалов</span>';}catch(e){slotsEl.innerHTML=`<span class="muted">${AW.esc(e.message)}</span>`;}}
+ serviceEl.addEventListener('change',e=>{if(e.target.matches('input[type="checkbox"]')){if(e.target.checked)ids.add(e.target.value);else ids.delete(e.target.value);updateSummary();updateSlots();}});
+ dateEl.addEventListener('change',updateSlots);
+ slotsEl.addEventListener('click',e=>{const b=e.target.closest('[data-time]');if(!b)return;chosenTime=b.dataset.time;slotsEl.querySelectorAll('.slot').forEach(s=>s.classList.toggle('active',s===b));});
+ document.getElementById('booking-submit').addEventListener('click',async()=>{if(!carEl.value)return AW.toast('Сначала выберите автомобиль','error');if(!ids.size)return AW.toast('Выберите хотя бы одну услугу','error');if(!chosenTime)return AW.toast('Выберите свободное время','error');const btn=document.getElementById('booking-submit');btn.disabled=true;try{const r=await AW.api('/api/orders',{method:'POST',body:JSON.stringify({carId:carEl.value,date:dateEl.value,time:chosenTime,serviceIds:[...ids].map(Number)})});AW.toast(`Запись №${r.id} оформлена!`);setTimeout(()=>location.href='/bookings.html',900);}catch(e){AW.toast(e.message,'error');await updateSlots();}finally{btn.disabled=false;}});
+ updateSummary();updateSlots();
+})();
